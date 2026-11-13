@@ -23,7 +23,10 @@
 
   <button id="btn-lancer" class="btn btn-principal">Lancer la partie</button>
   <button id="btn-essai" class="btn btn-secondaire">Tester les cartes et les sons</button>
-  <p class="version" id="version"></p>
+  <div class="bloc-version">
+    <span class="version" id="version"></span>
+    <button id="btn-maj" class="btn-maj">Vérifier les mises à jour</button>
+  </div>
 </section>
 
 <!-- ============ ÉCRAN DE JEU ============ -->
@@ -64,10 +67,11 @@
 
 <script>
 /* =====================================================================
-   ÉCHO — app de jeu (version 1)
+   ÉCHO — app de jeu
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v3';
+const VERSION = 'v4';
+const DATE_VERSION = '13/11/2026';
 
 /* ---------- LES SONS ----------
    code    : ce qui est écrit dans le QR code de la carte (ECHO:S01…)
@@ -784,7 +788,55 @@ $('btn-retour').onclick = () => { etat('accueil'); montrerEcran('ecran-accueil')
 /* ---------------- DÉMARRAGE ---------------- */
 construireReglages();
 construireEssai();
-$('version').textContent = 'Écho ' + VERSION;
+$('version').textContent = 'Version ' + VERSION + ' · ' + DATE_VERSION;
+
+/* ---------------- MISE À JOUR ---------------- */
+// regarde sur GitHub quelle est la dernière version publiée
+async function versionEnLigne() {
+  const r = await fetch('index.html?v=' + Date.now(), { cache: 'no-store' });
+  const t = await r.text();
+  const m = t.match(/const VERSION = '([^']+)'/);
+  return m ? m[1] : null;
+}
+async function verifierMaj() {
+  const b = $('btn-maj');
+  try {
+    const v = await versionEnLigne();
+    if (v && v !== VERSION) {
+      b.textContent = 'Mettre à jour vers ' + v;
+      b.classList.add('dispo');
+      b.dataset.dispo = v;
+    } else if (b.dataset.verifie) {
+      b.textContent = 'L\'app est à jour ✓';
+    }
+  } catch (e) {
+    if (b.dataset.verifie) b.textContent = 'Pas de connexion';
+  }
+  b.dataset.verifie = '1';
+}
+async function mettreAJour() {
+  const b = $('btn-maj');
+  b.textContent = 'Mise à jour…';
+  try {
+    // recharge les fichiers depuis GitHub en ignorant les anciennes copies
+    await Promise.all(['index.html', 'theme.css', 'sw.js', 'manifest.webmanifest']
+      .map(f => fetch(f, { cache: 'reload' }).catch(() => {})));
+    if ('caches' in window) {
+      const noms = await caches.keys();
+      await Promise.all(noms.map(n => caches.delete(n)));
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  } catch (e) {}
+  location.replace(location.pathname + '?maj=' + Date.now());
+}
+$('btn-maj').onclick = () => {
+  if ($('btn-maj').dataset.dispo) mettreAJour();
+  else { $('btn-maj').textContent = 'Vérification…'; verifierMaj(); }
+};
+verifierMaj(); // vérification discrète à l'ouverture
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
