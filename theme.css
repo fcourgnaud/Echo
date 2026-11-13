@@ -196,20 +196,29 @@ body[data-etat="buzz"] #btn-personne { display: block; }
 .essai-resultat.flash { animation: flash 0.5s; }
 @keyframes flash { 0% { background: var(--accent); color: var(--texte-sur-accent); } 100% { background: var(--fond-2); } }
 .essai-aide { color: var(--texte-doux); }
-.essai-lecteur { color: var(--texte-doux); font-size: 0.8rem; }
+.essai-lecteur { color: var(--texte-doux); font-size: 0.75rem; text-align: center; max-width: 420px; }
 .grille-sons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 420px; }
 .son-btn { background: var(--fond-2); border-radius: 14px; padding: 12px 6px; font-weight: 700; font-size: 0.9rem; }
 .son-btn.son-piege { border: 2px dashed var(--faux); }
 .son-code { display: block; font-size: 0.7rem; color: var(--texte-doux); font-weight: 400; }
 
 /* ---------- Caméra ----------
-   Invisible : elle sert seulement à lire les QR codes.
-   Ne pas la mettre en display: none (certains iPhone arrêteraient de lire). */
+   Pendant le jeu : invisible, placée derrière l'écran (elle sert seulement
+   à lire les QR). Ne pas la réduire à 1 ou 2 pixels ni la mettre en
+   display: none : certains téléphones arrêtent alors de filmer. */
 .camera {
-  position: fixed; top: 0; left: 0;
-  width: 2px; height: 2px;
-  opacity: 0; pointer-events: none;
+  position: fixed; left: 0; bottom: 0;
+  width: 160px; height: 120px;
+  opacity: 0.01; z-index: -1; pointer-events: none;
+  object-fit: cover; transform: scaleX(-1);
 }
+/* Sur l'écran de test : aperçu visible, pour vérifier que la caméra voit la carte */
+.essai-camera { width: 100%; max-width: 420px; }
+.essai-camera .camera {
+  position: static; width: 100%; height: 200px;
+  opacity: 1; z-index: auto; border-radius: var(--arrondi); background: #000;
+}
+.essai-camera:empty { display: none; }
 
 /* ---------- Visuel du son (mode Petits et écran de test) ----------
    Affiche images/S01.png… (ton dessin) ou le nom du son s'il n'y a pas d'image. */

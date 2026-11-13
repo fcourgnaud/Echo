@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="theme.css">
 <title>Écho</title>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="jsQR.js"></script> <!-- lecteur de secours, hébergé avec l'app -->
 <script src="https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/iife/index.min.js" async></script>
 </head>
 <body data-etat="accueil">
@@ -132,7 +132,7 @@
 
   <article class="regles regles-commun">
     <h3>Sans cartes</h3>
-    <p>Choisis <b>Jouer avec : L'écran</b>. On touche les boutons des sons à l'écran au lieu de montrer les cartes. En Écho, chaque joueur touche son bouton de couleur pour prendre la main.</p>
+    <p>Choisis <b>Jouer avec : L'écran</b>. On touche les boutons des sons à l'écran. Les cartes marchent quand même, si on préfère les montrer. En Écho, chaque joueur touche son bouton de couleur pour prendre la main.</p>
   </article>
 
   <button id="btn-retour-regles" class="btn btn-secondaire">Retour</button>
@@ -141,6 +141,8 @@
 <section id="ecran-essai" class="ecran">
   <h2 class="titre-essai">Test des cartes</h2>
   <div id="essai-resultat" class="essai-resultat">Montre une carte à la caméra</div>
+  <p class="essai-aide">Ce que voit la caméra :</p>
+  <div id="essai-camera" class="essai-camera"></div>
   <p id="essai-lecteur" class="essai-lecteur">Lecteur : démarrage…</p>
   <div id="essai-visuel" class="visuel"></div>
   <p class="essai-aide">Ou touche un son pour l'écouter :</p>
@@ -157,7 +159,7 @@
    ÉCHO — app de jeu
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v9';
+const VERSION = 'v10';
 const DATE_VERSION = '13/11/2026';
 
 /* ---------- LES SONS ----------
@@ -406,8 +408,8 @@ function bruitage(nom) { if (ctx) BRUITAGES[nom](ctx.currentTime + 0.02); }
 const video = $('camera');
 const toile = $('toile'), dessin = toile.getContext('2d', { willReadFrequently: true });
 let flux = null, detecteur = null, nomLecteur = 'jsQR', dernierCode = '', dernierVu = 0;
-let passage = 0, occupe = false;
-const stats = { images: 0, depuis: performance.now(), ips: 0 };
+let passage = 0, occupe = false, erreursLecteur = 0, derniereErreur = '';
+const stats = { images: 0, depuis: performance.now(), ips: 0, lus: 0 };
 
 async function preparerLecteur() {
   if (detecteur) return;
@@ -433,7 +435,7 @@ async function preparerLecteur() {
   }
 }
 
-async function demarrerCamera() {
+async function demarrerCamera(silencieux) {
   if (flux) return true;
   try {
     flux = await navigator.mediaDevices.getUserMedia({
@@ -455,15 +457,14 @@ async function demarrerCamera() {
     prochaineImage();
     return true;
   } catch (e) {
-    alert('La caméra n\'a pas pu démarrer. Vérifie que tu as autorisé la caméra pour ce site.');
+    derniereErreur = 'caméra : ' + (e && e.name || e);
+    if (!silencieux) alert('La caméra n\'a pas pu démarrer. Vérifie que tu as autorisé la caméra pour ce site.');
     return false;
   }
 }
 
-function prochaineImage() {
-  if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(analyserImage);
-  else requestAnimationFrame(analyserImage);
-}
+// boucle simple et sûre : elle tourne toujours, même si la vidéo est cachée
+function prochaineImage() { setTimeout(analyserImage, 20); }
 
 // prépare l'image à lire : image entière réduite, ou zoom sur le centre
 function cadrer(zoom) {
@@ -481,14 +482,24 @@ function cadrer(zoom) {
 
 async function lire(zoom) {
   const { w, h } = cadrer(zoom);
+  // 1. lecteur principal (intégré ou ZXing)
   if (detecteur) {
-    const r = await detecteur.detect(toile);
-    return r.length ? r[0].rawValue : null;
+    try {
+      const r = await detecteur.detect(toile);
+      erreursLecteur = 0;
+      if (r.length) return r[0].rawValue;
+    } catch (e) {
+      derniereErreur = 'lecteur : ' + (e && e.message || e);
+      // lecteur en panne (par exemple ZXing pas téléchargé) : on passe à jsQR
+      if (++erreursLecteur > 10) { detecteur = null; nomLecteur = 'jsQR (secours)'; }
+    }
   }
-  if (window.jsQR) {
+  // 2. jsQR : toujours essayé quand il n'y a pas de lecteur principal,
+  //    sinon une image sur trois, en renfort
+  if (window.jsQR && (!detecteur || passage % 3 === 0)) {
     const img = dessin.getImageData(0, 0, w, h);
     const r = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
-    return r ? r.data : null;
+    if (r) return r.data;
   }
   return null;
 }
@@ -500,8 +511,8 @@ async function analyserImage() {
       if (!detecteur && passage % 30 === 0) await preparerLecteur(); // ZXing peut arriver un peu après
       const zoom = passage++ % 2 === 1;
       let texte = await lire(zoom);
-      if (texte) codeRecu(texte);
-    } catch (e) {}
+      if (texte) { stats.lus++; codeRecu(texte); }
+    } catch (e) { derniereErreur = String(e && e.message || e); }
     occupe = false;
     stats.images++;
     const t = performance.now();
@@ -512,7 +523,10 @@ async function analyserImage() {
 
 function afficherLecteur() {
   const z = $('essai-lecteur');
-  if (z) z.textContent = 'Lecteur : ' + nomLecteur + ' · ' + stats.ips + ' images/s';
+  if (!z) return;
+  z.textContent = 'Lecteur : ' + nomLecteur + ' · ' + stats.ips + ' images/s · caméra '
+    + video.videoWidth + '×' + video.videoHeight + ' · QR lus : ' + stats.lus
+    + (derniereErreur ? ' · ' + derniereErreur : '');
 }
 
 function codeRecu(brut) {
@@ -973,7 +987,9 @@ $('btn-lancer').onclick = async () => {
   initAudio();
   await chargerTheme();
   document.body.classList.toggle('sans-cartes', !avecCartes());
-  if (avecCartes() && !(await demarrerCamera())) return;
+  // la caméra démarre dans tous les cas : les cartes marchent aussi en mode « L'écran »
+  const cameraOk = await demarrerCamera(!avecCartes());
+  if (avecCartes() && !cameraOk) return;
   garderEcranAllume();
   montrerEcran('ecran-jeu');
   if (reglages.mode === 'petits') petitsDebut(); else nouvellePartie();
@@ -1007,9 +1023,10 @@ $('btn-essai').onclick = async () => {
   chargerTheme();
   etat('essai');
   montrerEcran('ecran-essai');
+  $('essai-camera').appendChild(video); // aperçu visible seulement sur l'écran de test
   await demarrerCamera();
 };
-$('btn-retour').onclick = () => { etat('accueil'); montrerEcran('ecran-accueil'); };
+$('btn-retour').onclick = () => { document.body.appendChild(video); etat('accueil'); montrerEcran('ecran-accueil'); };
 
 /* ---------------- ÉCRAN DES RÈGLES ---------------- */
 function montrerOnglet(nom) {

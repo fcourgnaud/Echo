@@ -2,14 +2,14 @@
    Il va d'abord chercher la version en ligne (tes modifs sur GitHub
    apparaissent donc tout de suite), et utilise la copie gardée
    en mémoire seulement si le téléphone n'a pas de réseau. */
-const CACHE = 'echo-v9';
-const FICHIERS = ['./', './index.html', './theme.css', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
-const JSQR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+const CACHE = 'echo-v10';
+const FICHIERS = ['./', './index.html', './theme.css', './manifest.webmanifest', './icon-192.png', './icon-512.png', './jsQR.js'];
+const ZXING = 'https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/iife/index.min.js';
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(async c => {
     await c.addAll(FICHIERS);
-    try { await c.add(JSQR); } catch (err) {}
+    try { await c.add(ZXING); } catch (err) {}
   }));
   self.skipWaiting();
 });
