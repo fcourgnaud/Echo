@@ -22,6 +22,7 @@
   <div class="reglages" id="reglages"></div>
 
   <button id="btn-lancer" class="btn btn-principal">Lancer la partie</button>
+  <button id="btn-regles" class="btn btn-secondaire">Règles du jeu</button>
   <button id="btn-essai" class="btn btn-secondaire">Tester les cartes et les sons</button>
   <div class="bloc-version">
     <span class="version" id="version"></span>
@@ -52,6 +53,89 @@
 </section>
 
 <!-- ============ ÉCRAN DE TEST ============ -->
+<!-- ============ ÉCRAN DES RÈGLES (texte modifiable ici) ============ -->
+<section id="ecran-regles" class="ecran">
+  <h2 class="titre-essai">Règles</h2>
+  <div class="onglets">
+    <button class="onglet" data-onglet="petits">Petits (mémoire)</button>
+    <button class="onglet" data-onglet="echo">Écho (rapidité)</button>
+  </div>
+
+  <article class="regles" data-regles="petits">
+    <p class="regles-intro">Un jeu de mémoire où tout le monde joue ensemble. Dès 3 ans, de 1 à 6 joueurs.</p>
+
+    <h3>Préparer</h3>
+    <ol>
+      <li>Choisis <b>Petits</b>, le nombre de joueurs, le nombre de cartons et les essais, puis touche <b>Lancer la partie</b>.</li>
+      <li>Pose sur la table, dessin visible, les cartons que l'app affiche.</li>
+      <li>L'app choisit qui commence. Chaque joueur a une couleur.</li>
+    </ol>
+
+    <h3>Jouer</h3>
+    <ol>
+      <li>Le joueur dont c'est le tour touche <b>Écouter</b>. L'app joue 1 son.</li>
+      <li>Il cherche le bon carton et le montre à l'écran du téléphone. Bonne réponse : l'animal se fait entendre.</li>
+      <li>C'est au joueur suivant. L'app rejoue le même son, plus un nouveau. Il faut montrer les cartons <b>dans l'ordre</b>.</li>
+      <li>À chaque tour, la suite s'allonge d'un son.</li>
+    </ol>
+
+    <h3>Aides</h3>
+    <ul>
+      <li><b>Réécouter</b> : une fois par tour, on peut réentendre la suite.</li>
+      <li>Une erreur ? L'app montre le bon carton. Avec 3 essais, on perd un cœur et on réessaie. Avec 1 essai, tout recommence.</li>
+    </ul>
+
+    <h3>Gagner</h3>
+    <p>Tout le monde gagne ensemble quand <b>tous les cartons</b> ont été retrouvés. L'app garde votre record.</p>
+
+    <h3>Les cartons trouvés</h3>
+    <p>Choisissez avant de jouer :</p>
+    <ul>
+      <li><b>Facile</b> : on les range en ligne dans l'ordre, dessin visible.</li>
+      <li><b>Moyen</b> : on les range en ligne dans l'ordre, retournés.</li>
+      <li><b>Difficile</b> : on les remet mélangés sur la table.</li>
+    </ul>
+  </article>
+
+  <article class="regles" data-regles="echo">
+    <p class="regles-intro">Écoute, retiens, et sois le plus rapide à rejouer la suite. De 2 à 6 joueurs, dès 7 ans.</p>
+
+    <h3>Préparer</h3>
+    <ol>
+      <li>Étale les cartes Son au centre de la table, visibles par tous. En <b>Facile</b>, retire les 4 sons pièges (S09 à S12).</li>
+      <li>Chaque joueur garde sa carte Joueur en main.</li>
+      <li>Choisis <b>Écho</b> et les réglages, puis touche <b>Lancer la partie</b>.</li>
+    </ol>
+
+    <h3>Une manche</h3>
+    <ol>
+      <li>Touche <b>Écouter</b> : l'app joue une suite de sons, une seule fois. 3 sons pour commencer.</li>
+      <li>Le premier qui montre sa <b>carte Joueur</b> au téléphone prend la main.</li>
+      <li>Il montre les cartes Son <b>dans l'ordre entendu</b>. Chaque bonne carte rejoue son son.</li>
+      <li>Suite complète : il gagne la manche. La suivante aura un son de plus.</li>
+    </ol>
+
+    <h3>Erreur</h3>
+    <p>Le joueur est éliminé pour la manche, et les autres peuvent prendre la main. Attention : ils ont entendu le début de la bonne suite ! Si personne ne trouve, l'app révèle la suite et en joue une nouvelle.</p>
+
+    <h3>Gagner</h3>
+    <p>Le premier à remporter <b>3 ou 5 manches</b> (selon le réglage) gagne la partie.</p>
+
+    <h3>Options</h3>
+    <ul>
+      <li><b>Pièges</b> : des sons qui se ressemblent (Chien/Loup, Canard/Grenouille, Coucou/Hibou, Poussin/Oiseau).</li>
+      <li><b>À l'envers</b> : une manche sur 3, on rejoue la suite de la fin vers le début.</li>
+    </ul>
+  </article>
+
+  <article class="regles regles-commun">
+    <h3>Sans cartes</h3>
+    <p>Choisis <b>Jouer avec : L'écran</b>. On touche les boutons des sons à l'écran au lieu de montrer les cartes. En Écho, chaque joueur touche son bouton de couleur pour prendre la main.</p>
+  </article>
+
+  <button id="btn-retour-regles" class="btn btn-secondaire">Retour</button>
+</section>
+
 <section id="ecran-essai" class="ecran">
   <h2 class="titre-essai">Test des cartes</h2>
   <div id="essai-resultat" class="essai-resultat">Montre une carte à la caméra</div>
@@ -70,7 +154,7 @@
    ÉCHO — app de jeu
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const DATE_VERSION = '13/11/2026';
 
 /* ---------- LES SONS ----------
@@ -831,6 +915,20 @@ $('btn-essai').onclick = async () => {
   await demarrerCamera();
 };
 $('btn-retour').onclick = () => { etat('accueil'); montrerEcran('ecran-accueil'); };
+
+/* ---------------- ÉCRAN DES RÈGLES ---------------- */
+function montrerOnglet(nom) {
+  document.querySelectorAll('.onglet').forEach(o => o.classList.toggle('choisi', o.dataset.onglet === nom));
+  document.querySelectorAll('[data-regles]').forEach(a => a.hidden = a.dataset.regles !== nom);
+}
+document.querySelectorAll('.onglet').forEach(o => o.onclick = () => montrerOnglet(o.dataset.onglet));
+$('btn-regles').onclick = () => {
+  montrerOnglet(reglages.mode);   // ouvre les règles du mode choisi
+  etat('regles');
+  montrerEcran('ecran-regles');
+  $('ecran-regles').scrollTop = 0;
+};
+$('btn-retour-regles').onclick = () => { etat('accueil'); montrerEcran('ecran-accueil'); };
 
 /* ---------------- DÉMARRAGE ---------------- */
 construireReglages();

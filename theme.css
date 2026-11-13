@@ -235,3 +235,25 @@ body[data-etat="buzz"] #btn-personne { display: block; }
 .touche img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 10px; background: var(--texte); }
 .touche-joueur { font-size: 1.4rem; color: var(--couleur); border: 3px solid var(--couleur); min-height: 72px; }
 body.sans-cartes .visuel.plein { width: 110px; height: 110px; }
+
+/* ---------- Écran des règles ---------- */
+.onglets { display: flex; gap: 8px; width: 100%; max-width: 520px; }
+.onglet {
+  flex: 1; padding: 10px 0; border-radius: 12px; font-weight: 700;
+  background: transparent; border: 2px solid rgba(255,255,255,0.12);
+}
+.onglet.choisi { background: var(--accent); color: var(--texte-sur-accent); border-color: var(--accent); }
+.regles {
+  width: 100%; max-width: 520px;
+  background: var(--fond-2); border-radius: var(--arrondi);
+  padding: 18px 20px; line-height: 1.5; font-size: 1rem;
+}
+.regles[hidden] { display: none; }
+.regles-intro { color: var(--accent); font-weight: 700; }
+.regles h3 { font-family: var(--police-titre); font-size: 1.2rem; margin: 18px 0 6px; color: var(--texte); }
+.regles h3:first-child { margin-top: 0; }
+.regles ol, .regles ul { padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; }
+.regles p { color: var(--texte); }
+.regles b { color: var(--accent); }
+#ecran-regles { flex-shrink: 0; }
+#ecran-regles > * { flex-shrink: 0; }
