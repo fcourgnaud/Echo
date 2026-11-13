@@ -170,6 +170,12 @@ body[data-etat="gagne"]  .message,
 body[data-etat="fin"]    .message { color: var(--ok); }
 @keyframes respire { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
 
+/* bouton « Réécouter la série » : visible quand on cherche la réponse */
+#btn-reecouter { display: none; }
+body[data-etat="buzz"] #btn-reecouter,
+body[data-etat="actif"] #btn-reecouter { display: block; }
+body[data-etat="reecoute"] .message { animation: respire 1.2s ease-in-out infinite; }
+
 /* bouton « Personne n'ose » : visible seulement pendant la phase buzz */
 #btn-personne { display: none; }
 body[data-etat="buzz"] #btn-personne { display: block; }

@@ -47,6 +47,7 @@
 
   <div class="actions">
     <button id="btn-action" class="btn btn-principal"></button>
+    <button id="btn-reecouter" class="btn btn-secondaire">🔁 Réécouter la série</button>
     <button id="btn-personne" class="btn btn-secondaire">Personne n'ose</button>
   </div>
   <button id="btn-quitter" class="btn-quitter" aria-label="Quitter">✕</button>
@@ -81,7 +82,7 @@
 
     <h3>Aides</h3>
     <ul>
-      <li><b>Réécouter</b> : une fois par tour, on peut réentendre la suite.</li>
+      <li><b>Réécouter la série</b> : on peut réentendre la suite à tout moment, autant de fois qu'on veut.</li>
       <li>Une erreur ? L'app montre le bon carton. Avec 3 essais, on perd un cœur et on réessaie. Avec 1 essai, tout recommence.</li>
     </ul>
 
@@ -109,7 +110,7 @@
 
     <h3>Une manche</h3>
     <ol>
-      <li>Touche <b>Écouter</b> : l'app joue une suite de sons, une seule fois. 3 sons pour commencer.</li>
+      <li>Touche <b>Écouter</b> : l'app joue une suite de sons. 3 sons pour commencer. Le bouton <b>Réécouter la série</b> permet de l'entendre à nouveau.</li>
       <li>Le premier qui montre sa <b>carte Joueur</b> au téléphone prend la main.</li>
       <li>Il montre les cartes Son <b>dans l'ordre entendu</b>. Chaque bonne carte rejoue son son.</li>
       <li>Suite complète : il gagne la manche. La suivante aura un son de plus.</li>
@@ -154,7 +155,7 @@
    ÉCHO — app de jeu
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v7';
+const VERSION = 'v8';
 const DATE_VERSION = '13/11/2026';
 
 /* ---------- LES SONS ----------
@@ -669,8 +670,7 @@ function petitsEcouter() {
              avecCartes()
                ? (P.longueur === 1 ? 'Trouve le carton et montre-le' : 'Trouve les cartons dans l\'ordre')
                : (P.longueur === 1 ? 'Touche le bon son' : 'Touche les sons dans l\'ordre'));
-    if (P.reecoute) bouton(null);
-    else bouton('Réécouter', () => { P.reecoute = true; petitsEcouter(); });
+    bouton(null);
   }, 500 + P.longueur * PARAMS.ecartSons + 300);
 }
 
@@ -757,6 +757,26 @@ function montrerVisuel(code, zone = 'visuel') {
   img.onerror = () => { z.innerHTML = '<span class="visuel-nom">' + nomDe(code) + '</span>'; };
   z.appendChild(img);
 }
+
+/* ---------------- RÉÉCOUTER LA SÉRIE ----------------
+   Rejoue la suite sans effacer ce qui a déjà été trouvé. */
+function reecouter() {
+  const avant = document.body.dataset.etat;
+  if (avant !== 'buzz' && avant !== 'actif') return;
+  const suite = jeu.mode === 'petits' ? P.suite.slice(0, P.longueur) : jeu.suite;
+  const textes = ['manche-info', 'message', 'sous-message'].map(id => $(id).textContent);
+  etat('reecoute');
+  $('message').textContent = 'Écoutez…';
+  $('sous-message').textContent = '';
+  const debut = ctx.currentTime + 0.3;
+  suite.forEach((code, i) => jouerSon(code, debut + i * PARAMS.ecartSons / 1000));
+  setTimeout(() => {
+    if (document.body.dataset.etat !== 'reecoute') return; // partie quittée entre-temps
+    ['manche-info', 'message', 'sous-message'].forEach((id, i) => $(id).textContent = textes[i]);
+    etat(avant);
+  }, 300 + suite.length * PARAMS.ecartSons + 200);
+}
+$('btn-reecouter').onclick = reecouter;
 
 /* ---------------- AFFICHAGE ---------------- */
 function etat(nom) { document.body.dataset.etat = nom; majClavier(); }
