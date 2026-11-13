@@ -1,0 +1,15 @@
+DOSSIER DES SONS — ÉCHO
+
+Ce dossier est facultatif. Sans lui, l'app fabrique elle-même les 12 sons.
+
+Pour remplacer un son par un vrai enregistrement :
+- nomme le fichier avec le code de la carte : S01.mp3, S02.mp3 … S12.mp3
+- dépose-le dans ce dossier "sons" sur GitHub
+- garde des sons courts (moins d'une seconde) qui commencent tout de suite, sans silence au début
+
+S01 Tambour        S07 Goutte
+S02 Cloche         S08 Klaxon
+S03 Sifflet        S09 Tam-tam        (piège du Tambour)
+S04 Gong           S10 Clochette      (piège de la Cloche)
+S05 Clap           S11 Pipeau         (piège du Sifflet)
+S06 Boing          S12 Grosse goutte  (piège de la Goutte)
