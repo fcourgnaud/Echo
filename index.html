@@ -38,6 +38,9 @@
     <div id="pastilles" class="pastilles"></div>
   </div>
 
+  <!-- boutons à toucher quand on joue sans les cartes -->
+  <div id="clavier" class="clavier"></div>
+
   <div class="actions">
     <button id="btn-action" class="btn btn-principal"></button>
     <button id="btn-personne" class="btn btn-secondaire">Personne n'ose</button>
@@ -55,7 +58,7 @@
   <button id="btn-retour" class="btn btn-secondaire">Retour</button>
 </section>
 
-<!-- Aperçu de la caméra (sa forme et sa place se règlent dans theme.css) -->
+<!-- Caméra (invisible : elle sert seulement à lire les QR codes) -->
 <video id="camera" class="camera" playsinline muted autoplay></video>
 <canvas id="toile" hidden></canvas>
 
@@ -64,7 +67,7 @@
    ÉCHO — app de jeu (version 1)
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v2';
+const VERSION = 'v3';
 
 /* ---------- LES SONS ----------
    code    : ce qui est écrit dans le QR code de la carte (ECHO:S01…)
@@ -94,6 +97,7 @@ const SONS = [
 /* mode : la ligne n'apparaît que dans ce mode de jeu */
 const CHOIX = [
   { cle:'mode',          nom:'Mode de jeu',        options:[['echo','Écho (rapidité)'],['petits','Petits (mémoire)']], defaut:'echo' },
+  { cle:'cartes',        nom:'Jouer avec',         options:[['cartes','Les cartes'],['ecran','L\'écran']], defaut:'cartes' },
   { cle:'joueurs',       nom:'Joueurs',            options:[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']], defaut:4, mode:'echo' },
   { cle:'difficulte',    nom:'Difficulté',         options:[['facile','Facile'],['pieges','Pièges']], defaut:'facile', mode:'echo' },
   { cle:'victoire',      nom:'Manches à gagner',   options:[[3,'3'],[5,'5']], defaut:5, mode:'echo' },
@@ -376,7 +380,7 @@ function ecouter() {
 function ouvrirBuzz() {
   etat('buzz');
   afficher('Manche ' + jeu.manche, 'Qui s\'en souvient ?',
-           'Montrez votre carte Joueur à la caméra' + (jeu.envers ? ' — à l\'envers !' : ''));
+           (avecCartes() ? 'Montrez votre carte Joueur à la caméra' : 'Touchez votre bouton') + (jeu.envers ? ' — à l\'envers !' : ''));
   pastilles(jeu.longueur);
   bouton(null);
   dessinerScores();
@@ -390,7 +394,7 @@ function donnerMain(j) {
   etat('actif');
   document.body.style.setProperty('--couleur-active', 'var(--j' + (j + 1) + ')');
   afficher('Manche ' + jeu.manche, 'Joueur ' + (j + 1),
-           'Scanne les sons dans l\'ordre' + (jeu.envers ? ' — à l\'envers !' : ''));
+           (avecCartes() ? 'Scanne les sons dans l\'ordre' : 'Touche les sons dans l\'ordre') + (jeu.envers ? ' — à l\'envers !' : ''));
   dessinerScores();
 }
 
@@ -532,7 +536,9 @@ function petitsEcouter() {
     etat('actif');
     pastilles(P.longueur);
     afficher(petitsInfo(), 'À toi, ' + NOMS_JOUEURS[P.tour] + ' !',
-             P.longueur === 1 ? 'Trouve le carton et montre-le' : 'Trouve les cartons dans l\'ordre');
+             avecCartes()
+               ? (P.longueur === 1 ? 'Trouve le carton et montre-le' : 'Trouve les cartons dans l\'ordre')
+               : (P.longueur === 1 ? 'Touche le bon son' : 'Touche les sons dans l\'ordre'));
     if (P.reecoute) bouton(null);
     else bouton('Réécouter', () => { P.reecoute = true; petitsEcouter(); });
   }, 500 + P.longueur * PARAMS.ecartSons + 300);
@@ -623,7 +629,44 @@ function montrerVisuel(code, zone = 'visuel') {
 }
 
 /* ---------------- AFFICHAGE ---------------- */
-function etat(nom) { document.body.dataset.etat = nom; }
+function etat(nom) { document.body.dataset.etat = nom; majClavier(); }
+
+/* ---------------- JEU SANS CARTES : boutons à l'écran ---------------- */
+function avecCartes() { return reglages.cartes === 'cartes'; }
+
+function majClavier() {
+  const z = $('clavier');
+  if (!z) return;
+  z.innerHTML = '';
+  const e = document.body.dataset.etat;
+  if (avecCartes() || !jeu.mode) return;
+  if (e === 'buzz' && jeu.mode === 'echo') {
+    for (let j = 0; j < jeu.nb; j++) {
+      if (jeu.elimines.has(j)) continue;
+      const b = document.createElement('button');
+      b.className = 'touche touche-joueur';
+      b.style.setProperty('--couleur', 'var(--j' + (j + 1) + ')');
+      b.textContent = 'J' + (j + 1);
+      b.onclick = () => surScan('J' + (j + 1));
+      z.appendChild(b);
+    }
+  }
+  if (e === 'actif') {
+    const codes = jeu.mode === 'petits' ? P.cartons : sonsEnJeu().map(s => s.code);
+    codes.forEach(code => {
+      const b = document.createElement('button');
+      b.className = 'touche touche-son';
+      const img = document.createElement('img');
+      img.alt = ''; img.src = 'images/' + code + '.png';
+      img.onerror = () => img.remove();
+      const nom = document.createElement('span');
+      nom.className = 'touche-nom'; nom.textContent = nomDe(code);
+      b.append(img, nom);
+      b.onclick = () => surScan(code);
+      z.appendChild(b);
+    });
+  }
+}
 function afficher(manche, message, sous) {
   $('manche-info').textContent = manche;
   $('message').textContent = message;
@@ -701,7 +744,8 @@ async function garderEcranAllume() {
 
 $('btn-lancer').onclick = async () => {
   initAudio();
-  if (!(await demarrerCamera())) return;
+  document.body.classList.toggle('sans-cartes', !avecCartes());
+  if (avecCartes() && !(await demarrerCamera())) return;
   garderEcranAllume();
   montrerEcran('ecran-jeu');
   if (reglages.mode === 'petits') petitsDebut(); else nouvellePartie();

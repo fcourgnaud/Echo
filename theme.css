@@ -93,7 +93,7 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 .version { color: var(--texte-doux); font-size: 0.75rem; opacity: 0.6; }
 
 /* ---------- Jeu : scores ---------- */
-.scores { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; padding: 0 64px; } /* marges : place pour ✕ et la caméra */
+.scores { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; padding: 0 52px; } /* marges : place pour le bouton ✕ */
 .joueur {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 8px 10px; border-radius: 14px;
@@ -181,19 +181,14 @@ body[data-etat="buzz"] #btn-personne { display: block; }
 .son-btn.son-piege { border: 2px dashed var(--faux); }
 .son-code { display: block; font-size: 0.7rem; color: var(--texte-doux); font-weight: 400; }
 
-/* ---------- Aperçu caméra ----------
-   Petit rond en haut à droite, en miroir pour viser facilement.
-   Pour le cacher, utilise opacity: 0 (et PAS display: none,
-   sinon certains iPhone arrêtent de lire les QR). */
+/* ---------- Caméra ----------
+   Invisible : elle sert seulement à lire les QR codes.
+   Ne pas la mettre en display: none (certains iPhone arrêteraient de lire). */
 .camera {
-  position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px;
-  width: 72px; height: 72px; border-radius: 50%;
-  object-fit: cover; transform: scaleX(-1);
-  border: 3px solid var(--fond-2);
+  position: fixed; top: 0; left: 0;
+  width: 2px; height: 2px;
   opacity: 0; pointer-events: none;
 }
-body.camera-ok .camera { opacity: 1; }
-body[data-etat="accueil"] .camera { opacity: 0; }
 
 /* ---------- Visuel du son (mode Petits et écran de test) ----------
    Affiche images/S01.png… (ton dessin) ou le nom du son s'il n'y a pas d'image. */
@@ -209,3 +204,20 @@ body[data-etat="accueil"] .camera { opacity: 0; }
 .visuel img { width: 100%; height: 100%; object-fit: contain; }
 .visuel-nom { color: var(--fond); font-family: var(--police-titre); font-size: 1.6rem; font-weight: 800; text-align: center; padding: 10px; }
 @keyframes apparait { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ---------- Jeu sans cartes : les boutons à toucher ---------- */
+.clavier {
+  width: 100%; max-width: 460px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.clavier:empty { display: none; }
+.touche {
+  background: var(--fond-2); border-radius: 14px;
+  min-height: 64px; padding: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-weight: 700; font-size: 0.85rem;
+}
+.touche:active { transform: scale(0.93); background: var(--couleur-active); }
+.touche img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 10px; background: var(--texte); }
+.touche-joueur { font-size: 1.4rem; color: var(--couleur); border: 3px solid var(--couleur); min-height: 72px; }
+body.sans-cartes .visuel.plein { width: 110px; height: 110px; }
