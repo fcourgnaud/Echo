@@ -1,0 +1,211 @@
+/* =====================================================================
+   ÉCHO — THÈME VISUEL
+   Tu peux modifier librement ce fichier : il ne contient que l'apparence.
+   Le plus simple : change d'abord les variables ci-dessous.
+   ===================================================================== */
+
+:root {
+  /* --- Couleurs générales --- */
+  --fond:            #17122b;  /* fond de l'app */
+  --fond-2:          #241c40;  /* fond des blocs (réglages, pastilles…) */
+  --texte:           #f4efe6;  /* texte principal */
+  --texte-doux:      #a99fc4;  /* texte secondaire */
+  --accent:          #ffb23e;  /* boutons principaux, titre */
+  --texte-sur-accent:#17122b;
+  --ok:              #4fd18b;  /* son bien rejoué */
+  --faux:            #ff5a5f;  /* erreur */
+
+  /* --- Couleurs des joueurs (mêmes couleurs que sur les cartes Joueur) --- */
+  --j1: #ff5a5f;
+  --j2: #3fa7ff;
+  --j3: #4fd18b;
+  --j4: #ffd23e;
+  --j5: #b77dff;
+  --j6: #ff8fc7;
+
+  /* --- Polices --- */
+  --police-titre: ui-rounded, "SF Pro Rounded", "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  --police-texte: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* --- Formes --- */
+  --arrondi: 18px;
+  --taille-pastille: 54px;
+
+  /* couleur du joueur qui a la main (réglée par l'app, ne pas toucher) */
+  --couleur-active: var(--accent);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--police-texte);
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; border: none; cursor: pointer; }
+
+/* ---------- Les écrans ---------- */
+.ecran {
+  display: none;
+  position: fixed; inset: 0;
+  padding: calc(env(safe-area-inset-top) + 24px) 20px calc(env(safe-area-inset-bottom) + 24px);
+  flex-direction: column; align-items: center; gap: 16px;
+  overflow-y: auto;
+}
+.ecran.visible { display: flex; }
+
+/* ---------- Boutons ---------- */
+.btn {
+  width: 100%; max-width: 420px;
+  padding: 18px; border-radius: var(--arrondi);
+  font-size: 1.15rem; font-weight: 700;
+}
+.btn-principal   { background: var(--accent); color: var(--texte-sur-accent); }
+.btn-secondaire  { background: var(--fond-2); color: var(--texte); }
+.btn:active      { transform: scale(0.97); }
+.btn[hidden]     { display: none; }
+
+/* ---------- Accueil ---------- */
+.titre {
+  font-family: var(--police-titre);
+  font-size: clamp(4rem, 22vw, 8rem);
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  margin-top: 4vh;
+  /* petit effet d'écho : le titre se répète en fondu */
+  text-shadow: 0.06em 0.06em 0 rgba(255,178,62,0.25), 0.12em 0.12em 0 rgba(255,178,62,0.1);
+}
+.sous-titre { color: var(--texte-doux); font-size: 1.1rem; margin-bottom: 2vh; }
+.reglages { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+.reglage { background: var(--fond-2); border-radius: var(--arrondi); padding: 12px 14px; }
+.reglage-nom { display: block; font-size: 0.85rem; color: var(--texte-doux); margin-bottom: 8px; }
+.reglage[hidden] { display: none; }
+.choix { display: flex; gap: 8px; }
+.choix-btn {
+  flex: 1; padding: 10px 0; border-radius: 12px;
+  background: transparent; border: 2px solid rgba(255,255,255,0.12);
+  font-weight: 700;
+}
+.choix-btn.choisi { background: var(--accent); color: var(--texte-sur-accent); border-color: var(--accent); }
+.version { color: var(--texte-doux); font-size: 0.75rem; opacity: 0.6; }
+
+/* ---------- Jeu : scores ---------- */
+.scores { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; padding: 0 64px; } /* marges : place pour ✕ et la caméra */
+.joueur {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 10px; border-radius: 14px;
+  background: var(--fond-2);
+  border: 3px solid transparent;
+  min-width: 64px;
+}
+.joueur-nom { font-weight: 800; color: var(--couleur); }
+.joueur-points { display: flex; gap: 3px; }
+.joueur-points i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--couleur); }
+.joueur-points i.plein { background: var(--couleur); }
+.joueur.elimine { opacity: 0.3; }
+.joueur.a-la-main { border-color: var(--couleur); transform: scale(1.1); }
+
+/* ---------- Jeu : zone centrale ---------- */
+.zone-centre {
+  flex: 1; width: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; text-align: center;
+}
+.manche-info { color: var(--texte-doux); font-size: 1rem; text-transform: uppercase; letter-spacing: 0.15em; }
+.message { font-family: var(--police-titre); font-size: clamp(2rem, 10vw, 3.5rem); font-weight: 800; line-height: 1.1; }
+.sous-message { color: var(--texte-doux); font-size: 1.05rem; max-width: 26em; }
+
+/* ---------- Jeu : pastilles (une par son de la suite) ---------- */
+.pastilles { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; max-width: 460px; }
+.pastille {
+  width: var(--taille-pastille); min-height: var(--taille-pastille);
+  border-radius: 50%;
+  background: var(--fond-2);
+  border: 3px solid rgba(255,255,255,0.1);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  position: relative;
+}
+.pastille-num { font-weight: 800; color: var(--texte-doux); }
+.pastille-nom {
+  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  font-size: 0.7rem; white-space: nowrap; color: var(--texte-doux);
+}
+.pastille.joue { background: var(--accent); border-color: var(--accent); animation: pulse 0.4s; }
+.pastille.joue .pastille-num { color: var(--texte-sur-accent); }
+.pastille.ok   { background: var(--ok); border-color: var(--ok); }
+.pastille.ok .pastille-num { color: var(--fond); }
+.pastille.faux { background: var(--faux); border-color: var(--faux); animation: secoue 0.4s; }
+.pastilles:has(.pastille-nom:not(:empty)) { margin-bottom: 18px; }
+
+@keyframes pulse  { 0% { transform: scale(1); } 50% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes secoue { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+/* ---------- Ambiance selon la phase du jeu ----------
+   L'app indique la phase dans <body data-etat="…"> :
+   pret, ecoute, buzz, actif, rate, attente, gagne, revele, fin, essai, accueil */
+body[data-etat="ecoute"] .message { animation: respire 1.2s ease-in-out infinite; }
+body[data-etat="buzz"]   .message { color: var(--accent); }
+body[data-etat="actif"]  .message { color: var(--couleur-active); }
+body[data-etat="actif"]  #ecran-jeu { box-shadow: inset 0 0 0 6px var(--couleur-active); }
+body[data-etat="rate"]   .message { color: var(--faux); }
+body[data-etat="gagne"]  .message,
+body[data-etat="fin"]    .message { color: var(--ok); }
+@keyframes respire { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* bouton « Personne n'ose » : visible seulement pendant la phase buzz */
+#btn-personne { display: none; }
+body[data-etat="buzz"] #btn-personne { display: block; }
+
+.actions { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.btn-quitter {
+  position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 12px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--fond-2); color: var(--texte-doux); font-size: 1rem;
+}
+
+/* ---------- Écran de test ---------- */
+.titre-essai { font-family: var(--police-titre); font-size: 2rem; margin-top: 2vh; }
+.essai-resultat {
+  width: 100%; max-width: 420px; padding: 24px; border-radius: var(--arrondi);
+  background: var(--fond-2); text-align: center; font-size: 1.3rem; font-weight: 700;
+}
+.essai-resultat.flash { animation: flash 0.5s; }
+@keyframes flash { 0% { background: var(--accent); color: var(--texte-sur-accent); } 100% { background: var(--fond-2); } }
+.essai-aide { color: var(--texte-doux); }
+.grille-sons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 420px; }
+.son-btn { background: var(--fond-2); border-radius: 14px; padding: 12px 6px; font-weight: 700; font-size: 0.9rem; }
+.son-btn.son-piege { border: 2px dashed var(--faux); }
+.son-code { display: block; font-size: 0.7rem; color: var(--texte-doux); font-weight: 400; }
+
+/* ---------- Aperçu caméra ----------
+   Petit rond en haut à droite, en miroir pour viser facilement.
+   Pour le cacher, utilise opacity: 0 (et PAS display: none,
+   sinon certains iPhone arrêtent de lire les QR). */
+.camera {
+  position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px;
+  width: 72px; height: 72px; border-radius: 50%;
+  object-fit: cover; transform: scaleX(-1);
+  border: 3px solid var(--fond-2);
+  opacity: 0; pointer-events: none;
+}
+body.camera-ok .camera { opacity: 1; }
+body[data-etat="accueil"] .camera { opacity: 0; }
+
+/* ---------- Visuel du son (mode Petits et écran de test) ----------
+   Affiche images/S01.png… (ton dessin) ou le nom du son s'il n'y a pas d'image. */
+.visuel { display: none; }
+.visuel.plein {
+  display: flex; align-items: center; justify-content: center;
+  width: 160px; height: 160px;
+  border-radius: var(--arrondi);
+  background: var(--texte);
+  overflow: hidden;
+  animation: apparait 0.25s ease-out;
+}
+.visuel img { width: 100%; height: 100%; object-fit: contain; }
+.visuel-nom { color: var(--fond); font-family: var(--police-titre); font-size: 1.6rem; font-weight: 800; text-align: center; padding: 10px; }
+@keyframes apparait { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }

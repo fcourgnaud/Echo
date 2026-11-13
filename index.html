@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#17122b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="theme.css">
+<title>Écho</title>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body data-etat="accueil">
+
+<!-- ============ ÉCRAN D'ACCUEIL ============ -->
+<section id="ecran-accueil" class="ecran visible">
+  <h1 class="titre">Écho</h1>
+  <p class="sous-titre">Écoute. Retiens. Rejoue.</p>
+
+  <div class="reglages" id="reglages"></div>
+
+  <button id="btn-lancer" class="btn btn-principal">Lancer la partie</button>
+  <button id="btn-essai" class="btn btn-secondaire">Tester les cartes et les sons</button>
+  <p class="version" id="version"></p>
+</section>
+
+<!-- ============ ÉCRAN DE JEU ============ -->
+<section id="ecran-jeu" class="ecran">
+  <div id="scores" class="scores"></div>
+
+  <div class="zone-centre">
+    <div id="manche-info" class="manche-info"></div>
+    <div id="message" class="message"></div>
+    <div id="sous-message" class="sous-message"></div>
+    <div id="visuel" class="visuel"></div>
+    <div id="pastilles" class="pastilles"></div>
+  </div>
+
+  <div class="actions">
+    <button id="btn-action" class="btn btn-principal"></button>
+    <button id="btn-personne" class="btn btn-secondaire">Personne n'ose</button>
+  </div>
+  <button id="btn-quitter" class="btn-quitter" aria-label="Quitter">✕</button>
+</section>
+
+<!-- ============ ÉCRAN DE TEST ============ -->
+<section id="ecran-essai" class="ecran">
+  <h2 class="titre-essai">Test des cartes</h2>
+  <div id="essai-resultat" class="essai-resultat">Montre une carte à la caméra</div>
+  <div id="essai-visuel" class="visuel"></div>
+  <p class="essai-aide">Ou touche un son pour l'écouter :</p>
+  <div id="essai-sons" class="grille-sons"></div>
+  <button id="btn-retour" class="btn btn-secondaire">Retour</button>
+</section>
+
+<!-- Aperçu de la caméra (sa forme et sa place se règlent dans theme.css) -->
+<video id="camera" class="camera" playsinline muted autoplay></video>
+<canvas id="toile" hidden></canvas>
+
+<script>
+/* =====================================================================
+   ÉCHO — app de jeu (version 1)
+   Les réglages faciles à modifier sont tout en haut.
+   ===================================================================== */
+const VERSION = 'v2';
+
+/* ---------- LES SONS ----------
+   code    : ce qui est écrit dans le QR code de la carte (ECHO:S01…)
+   nom     : le nom affiché à l'écran
+   synth   : le son fabriqué par l'app si aucun fichier n'est fourni
+   piege   : true = son « piège » (utilisé seulement en difficulté Pièges)
+   jumeau  : le son auquel le piège ressemble
+   Pour utiliser un vrai enregistrement : dépose sons/S01.mp3 (etc.) sur GitHub.
+   Pour afficher ton dessin du son : dépose images/S01.png (etc.) sur GitHub.
+*/
+const SONS = [
+  { code:'S01', nom:'Tambour',       synth:'tambour' },
+  { code:'S02', nom:'Cloche',        synth:'cloche' },
+  { code:'S03', nom:'Sifflet',       synth:'sifflet' },
+  { code:'S04', nom:'Gong',          synth:'gong' },
+  { code:'S05', nom:'Clap',          synth:'clap' },
+  { code:'S06', nom:'Boing',         synth:'boing' },
+  { code:'S07', nom:'Goutte',        synth:'goutte' },
+  { code:'S08', nom:'Klaxon',        synth:'klaxon' },
+  { code:'S09', nom:'Tam-tam',       synth:'tamtam',       piege:true, jumeau:'S01' },
+  { code:'S10', nom:'Clochette',     synth:'clochette',    piege:true, jumeau:'S02' },
+  { code:'S11', nom:'Pipeau',        synth:'pipeau',       piege:true, jumeau:'S03' },
+  { code:'S12', nom:'Grosse goutte', synth:'grossegoutte', piege:true, jumeau:'S07' },
+];
+
+/* ---------- RÉGLAGES DE L'ÉCRAN D'ACCUEIL ---------- */
+/* mode : la ligne n'apparaît que dans ce mode de jeu */
+const CHOIX = [
+  { cle:'mode',          nom:'Mode de jeu',        options:[['echo','Écho (rapidité)'],['petits','Petits (mémoire)']], defaut:'echo' },
+  { cle:'joueurs',       nom:'Joueurs',            options:[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']], defaut:4, mode:'echo' },
+  { cle:'difficulte',    nom:'Difficulté',         options:[['facile','Facile'],['pieges','Pièges']], defaut:'facile', mode:'echo' },
+  { cle:'victoire',      nom:'Manches à gagner',   options:[[3,'3'],[5,'5']], defaut:5, mode:'echo' },
+  { cle:'envers',        nom:'Manches à l\'envers', options:[['non','Non'],['oui','Oui']], defaut:'non', mode:'echo' },
+  { cle:'joueursPetits', nom:'Joueurs',            options:[[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']], defaut:3, mode:'petits' },
+  { cle:'cartons',       nom:'Cartons sur la table', options:[[4,'4'],[6,'6'],[8,'8'],[12,'12']], defaut:6, mode:'petits' },
+  { cle:'vies',          nom:'Essais',             options:[[1,'1'],[3,'3']], defaut:3, mode:'petits' },
+];
+
+/* noms des joueurs en mode Petits (mêmes couleurs que --j1… dans theme.css) */
+const NOMS_JOUEURS = ['Rouge', 'Bleu', 'Vert', 'Jaune', 'Violet', 'Rose'];
+
+/* ---------- RÉGLAGES DU JEU ---------- */
+const PARAMS = {
+  longueurDepart: 3,     // nombre de sons à la première manche
+  ecartSons: 950,        // temps entre deux sons de la suite (millisecondes)
+  enversToutesLes: 3,    // une manche sur 3 est à l'envers (si activé)
+  delaiAntiDoublon: 1200 // une même carte n'est relue qu'après avoir quitté la caméra
+};
+
+/* =====================================================================
+   À partir d'ici : le fonctionnement de l'app
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const reglages = {};
+CHOIX.forEach(c => reglages[c.cle] = c.defaut);
+
+/* ---------------- AUDIO ---------------- */
+let ctx = null, master = null;
+const enregistrements = {}; // sons chargés depuis le dossier sons/
+
+function initAudio() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = 0.9;
+    master.connect(ctx.destination);
+    chargerEnregistrements();
+  }
+  if (ctx.state === 'suspended') ctx.resume();
+}
+
+async function chargerEnregistrements() {
+  for (const s of SONS) {
+    try {
+      const r = await fetch('sons/' + s.code + '.mp3');
+      if (!r.ok) continue;
+      const data = await r.arrayBuffer();
+      enregistrements[s.code] = await new Promise((ok, ko) => ctx.decodeAudioData(data, ok, ko));
+    } catch (e) { /* pas de fichier : on garde le son fabriqué */ }
+  }
+}
+
+function enveloppe(g, t, attaque, duree, pic) {
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(pic, t + attaque);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + attaque + duree);
+}
+function oscillo(type, freq, t, duree, pic, attaque = 0.005) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  o.connect(g); g.connect(master);
+  enveloppe(g, t, attaque, duree, pic);
+  o.start(t); o.stop(t + attaque + duree + 0.05);
+  return o;
+}
+function vibrato(o, t, duree, vitesse, ampleur) {
+  const l = ctx.createOscillator(), lg = ctx.createGain();
+  l.frequency.value = vitesse; lg.gain.value = ampleur;
+  l.connect(lg); lg.connect(o.frequency);
+  l.start(t); l.stop(t + duree + 0.1);
+}
+function bruit(t, duree, freq, q, pic) {
+  const n = Math.max(1, Math.floor(ctx.sampleRate * duree));
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  src.connect(f); f.connect(g); g.connect(master);
+  enveloppe(g, t, 0.002, duree, pic);
+  src.start(t); src.stop(t + duree + 0.05);
+}
+function cloche(base, t, duree, pic) {
+  [[1, 1], [2.76, 0.5], [5.4, 0.25], [8.9, 0.1]].forEach(([r, v], i) =>
+    oscillo('sine', base * r, t, duree / (i + 1), pic * v));
+}
+
+const SYNTH = {
+  tambour(t) {
+    const o = oscillo('sine', 160, t, 0.45, 1);
+    o.frequency.exponentialRampToValueAtTime(48, t + 0.3);
+    bruit(t, 0.05, 1500, 1, 0.3);
+  },
+  tamtam(t) {
+    const o = oscillo('sine', 230, t, 0.4, 1);
+    o.frequency.exponentialRampToValueAtTime(95, t + 0.28);
+    bruit(t, 0.05, 2000, 1, 0.3);
+  },
+  cloche(t)    { cloche(660, t, 1.2, 0.45); },
+  clochette(t) { cloche(990, t, 0.9, 0.4); },
+  sifflet(t) {
+    const o = oscillo('sine', 2200, t, 0.45, 0.35, 0.02);
+    vibrato(o, t, 0.45, 32, 140);
+  },
+  pipeau(t) {
+    const o = oscillo('sine', 1650, t, 0.45, 0.35, 0.02);
+    vibrato(o, t, 0.45, 26, 90);
+  },
+  gong(t) {
+    [[98, 0.5], [144, 0.3], [206, 0.22], [284, 0.12]].forEach(([f, v]) =>
+      oscillo('sine', f, t, 1.8, v, 0.02));
+  },
+  clap(t) {
+    [0, 0.012, 0.024].forEach(d => bruit(t + d, 0.03, 1200, 0.8, 0.8));
+    bruit(t + 0.036, 0.15, 1100, 0.8, 0.4);
+  },
+  boing(t) {
+    const o = oscillo('sine', 180, t, 0.5, 0.6);
+    o.frequency.linearRampToValueAtTime(520, t + 0.25);
+    vibrato(o, t, 0.5, 12, 60);
+  },
+  goutte(t) {
+    const o = oscillo('sine', 700, t, 0.18, 0.6);
+    o.frequency.exponentialRampToValueAtTime(1800, t + 0.1);
+  },
+  grossegoutte(t) {
+    const o = oscillo('sine', 450, t, 0.22, 0.6);
+    o.frequency.exponentialRampToValueAtTime(1100, t + 0.12);
+  },
+  klaxon(t) {
+    const f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = 'lowpass'; f.frequency.value = 1800;
+    f.connect(g); g.connect(master);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+    g.gain.setValueAtTime(0.25, t + 0.38);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    [370, 466].forEach(fr => {
+      const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = fr;
+      o.connect(f); o.start(t); o.stop(t + 0.5);
+    });
+  },
+};
+
+/* sons de l'interface */
+const BRUITAGES = {
+  main(t)    { oscillo('triangle', 880, t, 0.15, 0.4); oscillo('triangle', 1320, t + 0.08, 0.2, 0.3); },
+  erreur(t)  { const o = oscillo('square', 180, t, 0.5, 0.25); o.frequency.linearRampToValueAtTime(90, t + 0.5); },
+  victoire(t){ [523, 659, 784, 1047].forEach((f, i) => oscillo('triangle', f, t + i * 0.11, 0.35, 0.35)); },
+};
+
+function jouerSon(code, quand) {
+  if (!ctx) return;
+  const t = quand ?? ctx.currentTime + 0.02;
+  if (enregistrements[code]) {
+    const src = ctx.createBufferSource();
+    src.buffer = enregistrements[code]; src.connect(master); src.start(t);
+    return;
+  }
+  const s = SONS.find(x => x.code === code);
+  if (s && SYNTH[s.synth]) SYNTH[s.synth](t);
+}
+function bruitage(nom) { if (ctx) BRUITAGES[nom](ctx.currentTime + 0.02); }
+
+/* ---------------- CAMÉRA ET LECTURE DES QR ---------------- */
+const video = $('camera'), toile = $('toile'), dessin = toile.getContext('2d', { willReadFrequently: true });
+let flux = null, detecteur = null, dernierCode = '', dernierVu = 0;
+
+async function demarrerCamera() {
+  if (flux) return true;
+  try {
+    flux = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    video.srcObject = flux;
+    await video.play();
+    if ('BarcodeDetector' in window) {
+      try {
+        const formats = await BarcodeDetector.getSupportedFormats();
+        if (formats.includes('qr_code')) detecteur = new BarcodeDetector({ formats: ['qr_code'] });
+      } catch (e) {}
+    }
+    document.body.classList.add('camera-ok');
+    boucleScan();
+    return true;
+  } catch (e) {
+    alert('La caméra n\'a pas pu démarrer. Vérifie que tu as autorisé la caméra pour ce site.');
+    return false;
+  }
+}
+
+async function boucleScan() {
+  if (video.readyState >= 2 && video.videoWidth) {
+    let texte = null;
+    try {
+      if (detecteur) {
+        const r = await detecteur.detect(video);
+        if (r.length) texte = r[0].rawValue;
+      } else if (window.jsQR) {
+        const w = 360, h = Math.round(video.videoHeight / video.videoWidth * w);
+        toile.width = w; toile.height = h;
+        dessin.drawImage(video, 0, 0, w, h);
+        const img = dessin.getImageData(0, 0, w, h);
+        const r = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+        if (r) texte = r.data;
+      }
+    } catch (e) {}
+    if (texte) codeRecu(texte);
+  }
+  setTimeout(() => requestAnimationFrame(boucleScan), 50);
+}
+
+function codeRecu(brut) {
+  const texte = brut.trim().toUpperCase();
+  if (!texte.startsWith('ECHO:')) return;
+  const code = texte.slice(5);
+  const maintenant = performance.now();
+  // tant que la même carte reste devant la caméra, on ne la relit pas
+  if (code === dernierCode && maintenant - dernierVu < PARAMS.delaiAntiDoublon) { dernierVu = maintenant; return; }
+  dernierCode = code; dernierVu = maintenant;
+  surScan(code);
+}
+
+/* ---------------- DÉROULEMENT DE LA PARTIE ---------------- */
+const jeu = {};
+
+function sonsEnJeu() { return SONS.filter(s => reglages.difficulte === 'pieges' || !s.piege); }
+function nomDe(code) { const s = SONS.find(x => x.code === code); return s ? s.nom : code; }
+function melanger(t) { for (let i = t.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [t[i], t[j]] = [t[j], t[i]]; } return t; }
+
+function tirerSuite(n) {
+  const pool = sonsEnJeu();
+  let choisis = [];
+  // en mode Pièges, à partir de 4 sons, on glisse au moins un piège ET son jumeau
+  if (reglages.difficulte === 'pieges' && n >= 4) {
+    const p = melanger(pool.filter(s => s.piege))[0];
+    choisis = [p.code, p.jumeau];
+  }
+  const reste = melanger(pool.map(s => s.code).filter(c => !choisis.includes(c)));
+  return melanger(choisis.concat(reste.slice(0, n - choisis.length)));
+}
+
+function nouvellePartie() {
+  jeu.mode = 'echo';
+  montrerVisuel(null);
+  jeu.nb = reglages.joueurs;
+  jeu.scores = Array(jeu.nb).fill(0);
+  jeu.manche = 1;
+  jeu.longueur = PARAMS.longueurDepart;
+  preparerManche();
+}
+
+function preparerManche() {
+  jeu.elimines = new Set();
+  jeu.actif = null;
+  jeu.envers = reglages.envers === 'oui' && jeu.manche % PARAMS.enversToutesLes === 0;
+  jeu.suite = tirerSuite(jeu.longueur);
+  jeu.attendue = jeu.envers ? [...jeu.suite].reverse() : [...jeu.suite];
+  etat('pret');
+  afficher('Manche ' + jeu.manche, jeu.envers ? 'À l\'envers !' : 'Prêts ?',
+           jeu.longueur + ' sons à retenir' + (jeu.envers ? ' — rejouez-les de la fin vers le début' : ''));
+  pastilles(jeu.longueur);
+  dessinerScores();
+  bouton('Écouter', ecouter);
+}
+
+function ecouter() {
+  etat('ecoute');
+  afficher('Manche ' + jeu.manche, 'Écoutez…', '');
+  pastilles(jeu.longueur);
+  bouton(null);
+  const debut = ctx.currentTime + 0.6;
+  jeu.suite.forEach((code, i) => {
+    jouerSon(code, debut + i * PARAMS.ecartSons / 1000);
+    setTimeout(() => marquerPastille(i, 'joue'), 600 + i * PARAMS.ecartSons);
+  });
+  setTimeout(ouvrirBuzz, 600 + jeu.longueur * PARAMS.ecartSons + 400);
+}
+
+function ouvrirBuzz() {
+  etat('buzz');
+  afficher('Manche ' + jeu.manche, 'Qui s\'en souvient ?',
+           'Montrez votre carte Joueur à la caméra' + (jeu.envers ? ' — à l\'envers !' : ''));
+  pastilles(jeu.longueur);
+  bouton(null);
+  dessinerScores();
+}
+
+function donnerMain(j) {
+  jeu.actif = j;
+  jeu.index = 0;
+  jeu.valides = new Set();
+  bruitage('main');
+  etat('actif');
+  document.body.style.setProperty('--couleur-active', 'var(--j' + (j + 1) + ')');
+  afficher('Manche ' + jeu.manche, 'Joueur ' + (j + 1),
+           'Scanne les sons dans l\'ordre' + (jeu.envers ? ' — à l\'envers !' : ''));
+  dessinerScores();
+}
+
+function verifier(code) {
+  if (jeu.valides.has(code)) return;            // carte déjà validée : on l'ignore
+  if (code === jeu.attendue[jeu.index]) {
+    jouerSon(code);
+    jeu.valides.add(code);
+    marquerPastille(jeu.index, 'ok', nomDe(code));
+    jeu.index++;
+    if (jeu.index === jeu.attendue.length) { etat('attente'); setTimeout(gagnerManche, 700); }
+  } else {
+    bruitage('erreur');
+    marquerPastille(jeu.index, 'faux');
+    jeu.elimines.add(jeu.actif);
+    etat('rate');
+    afficher('Manche ' + jeu.manche, 'Raté !', 'Joueur ' + (jeu.actif + 1) + ' est éliminé pour cette manche');
+    dessinerScores();
+    setTimeout(() => {
+      if (jeu.elimines.size >= jeu.nb) personne();
+      else ouvrirBuzz();
+    }, 1600);
+  }
+}
+
+function personne() {
+  etat('revele');
+  afficher('Manche ' + jeu.manche, 'Personne !', 'Voici la bonne suite :');
+  reveler();
+  bouton('Nouvelle suite', preparerManche);
+}
+
+function reveler() {
+  pastilles(jeu.longueur);
+  const debut = ctx.currentTime + 0.4;
+  jeu.attendue.forEach((code, i) => {
+    jouerSon(code, debut + i * PARAMS.ecartSons / 1000);
+    setTimeout(() => marquerPastille(i, 'ok', nomDe(code)), 400 + i * PARAMS.ecartSons);
+  });
+}
+
+function gagnerManche() {
+  jeu.scores[jeu.actif]++;
+  bruitage('victoire');
+  dessinerScores();
+  if (jeu.scores[jeu.actif] >= reglages.victoire) {
+    etat('fin');
+    afficher('Fin de partie', 'Joueur ' + (jeu.actif + 1) + ' gagne !', 'Bravo, quelle mémoire !');
+    bouton('Rejouer', nouvellePartie);
+    return;
+  }
+  etat('gagne');
+  afficher('Manche ' + jeu.manche, 'Joueur ' + (jeu.actif + 1) + ' gagne la manche !',
+           'La prochaine suite aura un son de plus');
+  bouton('Manche suivante', () => {
+    jeu.manche++;
+    jeu.longueur = Math.min(jeu.longueur + 1, sonsEnJeu().length);
+    preparerManche();
+  });
+}
+
+function surScan(code) {
+  const etatActuel = document.body.dataset.etat;
+  if (etatActuel === 'essai') return essaiScan(code);
+  if (etatActuel === 'buzz' && code[0] === 'J') {
+    const j = parseInt(code.slice(1), 10) - 1;
+    if (j >= 0 && j < jeu.nb && !jeu.elimines.has(j)) donnerMain(j);
+    return;
+  }
+  if (etatActuel === 'actif' && code[0] === 'S') {
+    if (jeu.mode === 'petits') petitsVerifier(code); else verifier(code);
+  }
+}
+
+/* =====================================================================
+   MODE PETITS — mémoire coopérative
+   L'app joue 1 son, puis 2, puis 3… Chacun son tour, un joueur
+   retrouve les cartons et les scanne dans l'ordre. Tout le monde
+   gagne ensemble quand tous les cartons ont été retrouvés.
+   ===================================================================== */
+const P = {};
+
+function petitsDebut() {
+  jeu.mode = 'petits';
+  P.nb = reglages.joueursPetits;
+  jeu.nb = P.nb;
+  P.cartons = SONS.slice(0, reglages.cartons).map(s => s.code);
+  P.premier = Math.floor(Math.random() * P.nb);
+  etat('pret');
+  montrerVisuel(null);
+  afficher('Mise en place', 'Posez ces ' + P.cartons.length + ' cartons',
+           P.cartons.map(nomDe).join(' · '));
+  pastilles(0);
+  dessinerJoueursPetits(null);
+  bouton('C\'est parti !', petitsNouvellePartie);
+}
+
+function petitsNouvellePartie() {
+  P.suite = melanger([...P.cartons]);   // l'ordre secret de toute la partie
+  P.longueur = 1;
+  P.vies = reglages.vies;
+  P.tour = P.premier;
+  petitsPreparer();
+}
+
+function petitsInfo() {
+  let t = P.longueur + (P.longueur > 1 ? ' sons' : ' son') + ' sur ' + P.cartons.length;
+  if (reglages.vies > 1) t += '   ' + '♥'.repeat(P.vies) + '♡'.repeat(reglages.vies - P.vies);
+  return t;
+}
+
+function petitsPreparer() {
+  P.index = 0;
+  P.valides = new Set();
+  P.reecoute = false;
+  jeu.actif = P.tour;
+  etat('pret');
+  document.body.style.setProperty('--couleur-active', 'var(--j' + (P.tour + 1) + ')');
+  dessinerJoueursPetits(P.tour);
+  montrerVisuel(null);
+  afficher(petitsInfo(), 'À toi, ' + NOMS_JOUEURS[P.tour] + ' !',
+           P.longueur === 1 ? 'Écoute bien le son' : 'Écoute bien les ' + P.longueur + ' sons');
+  pastilles(P.longueur);
+  bouton('Écouter', petitsEcouter);
+}
+
+function petitsEcouter() {
+  etat('ecoute');
+  bouton(null);
+  montrerVisuel(null);
+  P.index = 0; P.valides = new Set();
+  pastilles(P.longueur);
+  const debut = ctx.currentTime + 0.5;
+  P.suite.slice(0, P.longueur).forEach((code, i) => {
+    jouerSon(code, debut + i * PARAMS.ecartSons / 1000);
+    setTimeout(() => marquerPastille(i, 'joue'), 500 + i * PARAMS.ecartSons);
+  });
+  setTimeout(() => {
+    etat('actif');
+    pastilles(P.longueur);
+    afficher(petitsInfo(), 'À toi, ' + NOMS_JOUEURS[P.tour] + ' !',
+             P.longueur === 1 ? 'Trouve le carton et montre-le' : 'Trouve les cartons dans l\'ordre');
+    if (P.reecoute) bouton(null);
+    else bouton('Réécouter', () => { P.reecoute = true; petitsEcouter(); });
+  }, 500 + P.longueur * PARAMS.ecartSons + 300);
+}
+
+function petitsVerifier(code) {
+  if (P.valides.has(code)) return;
+  const attendu = P.suite[P.index];
+  if (code === attendu) {
+    jouerSon(code);
+    montrerVisuel(code);
+    P.valides.add(code);
+    marquerPastille(P.index, 'ok', nomDe(code));
+    P.index++;
+    if (P.index === P.longueur) { etat('attente'); bouton(null); setTimeout(petitsReussi, 900); }
+    return;
+  }
+  // erreur : on montre et on fait entendre le bon carton
+  bruitage('erreur');
+  marquerPastille(P.index, 'faux');
+  P.vies--;
+  etat('rate');
+  bouton(null);
+  setTimeout(() => { jouerSon(attendu); montrerVisuel(attendu); }, 700);
+  if (P.vies > 0) {
+    afficher(petitsInfo(), 'Oups !', 'Il fallait celui-là. Encore ' + P.vies + (P.vies > 1 ? ' essais' : ' essai'));
+    setTimeout(() => bouton('Réessayer', petitsPreparer), 1200);
+  } else {
+    const fait = P.longueur - 1;
+    const record = noterRecord(fait);
+    etat('fin');
+    afficher('Perdu !', 'Vous êtes allés jusqu\'à ' + fait + (fait > 1 ? ' sons' : ' son'),
+             'Il fallait celui-là. ' + (record ? 'Nouveau record !' : 'Record : ' + lireRecord() + ' sons'));
+    setTimeout(() => bouton('Recommencer', () => {
+      P.premier = (P.premier + 1) % P.nb;
+      petitsNouvellePartie();
+    }), 1200);
+  }
+}
+
+function petitsReussi() {
+  bruitage('victoire');
+  if (P.longueur === P.cartons.length) {
+    noterRecord(P.longueur);
+    etat('fin');
+    montrerVisuel(null);
+    afficher('Gagné !', 'Bravo à tous !', 'Vous avez retrouvé les ' + P.cartons.length + ' cartons');
+    bouton('Rejouer', () => { P.premier = (P.premier + 1) % P.nb; petitsNouvellePartie(); });
+    return;
+  }
+  const suivant = (P.tour + 1) % P.nb;
+  etat('gagne');
+  afficher(petitsInfo(), 'Bravo ' + NOMS_JOUEURS[P.tour] + ' !',
+           P.nb > 1 ? 'Au tour de ' + NOMS_JOUEURS[suivant] : 'On ajoute un son');
+  bouton('Continuer', () => { P.longueur++; P.tour = suivant; petitsPreparer(); });
+}
+
+function cleRecord() { return 'echo-record-' + P.cartons.length; }
+function lireRecord() { try { return parseInt(localStorage.getItem(cleRecord()) || '0', 10); } catch (e) { return 0; } }
+function noterRecord(n) {
+  if (n <= lireRecord()) return false;
+  try { localStorage.setItem(cleRecord(), String(n)); } catch (e) {}
+  return true;
+}
+
+function dessinerJoueursPetits(tour) {
+  const z = $('scores'); z.innerHTML = '';
+  for (let j = 0; j < P.nb; j++) {
+    const d = document.createElement('div');
+    d.className = 'joueur' + (j === tour ? ' a-la-main' : '');
+    d.style.setProperty('--couleur', 'var(--j' + (j + 1) + ')');
+    d.innerHTML = '<span class="joueur-nom">' + NOMS_JOUEURS[j] + '</span>';
+    z.appendChild(d);
+  }
+}
+
+/* affiche le dessin du son (images/S01.png…) ou, à défaut, son nom */
+function montrerVisuel(code, zone = 'visuel') {
+  const z = $(zone);
+  z.innerHTML = '';
+  z.classList.toggle('plein', !!code);
+  if (!code) return;
+  const img = document.createElement('img');
+  img.alt = nomDe(code);
+  img.src = 'images/' + code + '.png';
+  img.onerror = () => { z.innerHTML = '<span class="visuel-nom">' + nomDe(code) + '</span>'; };
+  z.appendChild(img);
+}
+
+/* ---------------- AFFICHAGE ---------------- */
+function etat(nom) { document.body.dataset.etat = nom; }
+function afficher(manche, message, sous) {
+  $('manche-info').textContent = manche;
+  $('message').textContent = message;
+  $('sous-message').textContent = sous;
+}
+function bouton(texte, action) {
+  const b = $('btn-action');
+  if (!texte) { b.hidden = true; return; }
+  b.hidden = false; b.textContent = texte; b.onclick = action;
+}
+function pastilles(n) {
+  const z = $('pastilles'); z.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('div');
+    p.className = 'pastille';
+    p.innerHTML = '<span class="pastille-num">' + (i + 1) + '</span><span class="pastille-nom"></span>';
+    z.appendChild(p);
+  }
+}
+function marquerPastille(i, classe, nom) {
+  const p = $('pastilles').children[i];
+  if (!p) return;
+  p.classList.add(classe);
+  if (nom) p.querySelector('.pastille-nom').textContent = nom;
+}
+function dessinerScores() {
+  const z = $('scores'); z.innerHTML = '';
+  for (let j = 0; j < jeu.nb; j++) {
+    const d = document.createElement('div');
+    d.className = 'joueur';
+    d.style.setProperty('--couleur', 'var(--j' + (j + 1) + ')');
+    if (jeu.elimines && jeu.elimines.has(j)) d.classList.add('elimine');
+    if (jeu.actif === j && document.body.dataset.etat === 'actif') d.classList.add('a-la-main');
+    let points = '';
+    for (let k = 0; k < reglages.victoire; k++) points += '<i class="' + (k < jeu.scores[j] ? 'plein' : '') + '"></i>';
+    d.innerHTML = '<span class="joueur-nom">J' + (j + 1) + '</span><span class="joueur-points">' + points + '</span>';
+    z.appendChild(d);
+  }
+}
+function montrerEcran(id) {
+  document.querySelectorAll('.ecran').forEach(e => e.classList.toggle('visible', e.id === id));
+}
+
+/* ---------------- ACCUEIL ---------------- */
+function construireReglages() {
+  const z = $('reglages');
+  const lignes = [];
+  const majVisibles = () => lignes.forEach(([l, c]) => l.hidden = !!c.mode && c.mode !== reglages.mode);
+  CHOIX.forEach(c => {
+    const ligne = document.createElement('div'); ligne.className = 'reglage';
+    lignes.push([ligne, c]);
+    ligne.innerHTML = '<span class="reglage-nom">' + c.nom + '</span><div class="choix"></div>';
+    const boite = ligne.querySelector('.choix');
+    c.options.forEach(([val, txt]) => {
+      const b = document.createElement('button');
+      b.className = 'choix-btn' + (reglages[c.cle] === val ? ' choisi' : '');
+      b.textContent = txt;
+      b.onclick = () => {
+        reglages[c.cle] = val;
+        boite.querySelectorAll('.choix-btn').forEach(x => x.classList.remove('choisi'));
+        b.classList.add('choisi');
+        majVisibles();
+      };
+      boite.appendChild(b);
+    });
+    z.appendChild(ligne);
+  });
+  majVisibles();
+}
+
+let verrouEcran = null;
+async function garderEcranAllume() {
+  try { if ('wakeLock' in navigator) verrouEcran = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+
+$('btn-lancer').onclick = async () => {
+  initAudio();
+  if (!(await demarrerCamera())) return;
+  garderEcranAllume();
+  montrerEcran('ecran-jeu');
+  if (reglages.mode === 'petits') petitsDebut(); else nouvellePartie();
+};
+$('btn-personne').onclick = () => { if (document.body.dataset.etat === 'buzz') personne(); };
+$('btn-quitter').onclick = () => {
+  if (confirm('Quitter la partie ?')) { etat('accueil'); montrerEcran('ecran-accueil'); }
+};
+
+/* ---------------- ÉCRAN DE TEST ---------------- */
+function construireEssai() {
+  const z = $('essai-sons');
+  SONS.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'son-btn' + (s.piege ? ' son-piege' : '');
+    b.innerHTML = '<span class="son-code">' + s.code + '</span>' + s.nom;
+    b.onclick = () => { initAudio(); jouerSon(s.code); montrerVisuel(s.code, 'essai-visuel'); };
+    z.appendChild(b);
+  });
+}
+function essaiScan(code) {
+  const r = $('essai-resultat');
+  if (code[0] === 'J') { r.textContent = 'Carte Joueur ' + code.slice(1); bruitage('main'); }
+  else if (SONS.find(s => s.code === code)) { r.textContent = code + ' · ' + nomDe(code); jouerSon(code); montrerVisuel(code, 'essai-visuel'); }
+  else r.textContent = 'Code inconnu : ' + code;
+  r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash');
+}
+$('btn-essai').onclick = async () => {
+  initAudio();
+  etat('essai');
+  montrerEcran('ecran-essai');
+  await demarrerCamera();
+};
+$('btn-retour').onclick = () => { etat('accueil'); montrerEcran('ecran-accueil'); };
+
+/* ---------------- DÉMARRAGE ---------------- */
+construireReglages();
+construireEssai();
+$('version').textContent = 'Écho ' + VERSION;
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
