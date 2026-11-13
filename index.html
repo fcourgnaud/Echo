@@ -70,7 +70,7 @@
    ÉCHO — app de jeu
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v4';
+const VERSION = 'v5';
 const DATE_VERSION = '13/11/2026';
 
 /* ---------- LES SONS ----------
@@ -128,6 +128,12 @@ const PARAMS = {
 const $ = id => document.getElementById(id);
 const reglages = {};
 CHOIX.forEach(c => reglages[c.cle] = c.defaut);
+// l'app se souvient des derniers réglages choisis
+try {
+  const memo = JSON.parse(localStorage.getItem('echo-reglages') || '{}');
+  CHOIX.forEach(c => { if (c.options.some(o => o[0] === memo[c.cle])) reglages[c.cle] = memo[c.cle]; });
+} catch (e) {}
+function sauverReglages() { try { localStorage.setItem('echo-reglages', JSON.stringify(reglages)); } catch (e) {} }
 
 /* ---------------- AUDIO ---------------- */
 let ctx = null, master = null;
@@ -733,6 +739,7 @@ function construireReglages() {
         boite.querySelectorAll('.choix-btn').forEach(x => x.classList.remove('choisi'));
         b.classList.add('choisi');
         majVisibles();
+        sauverReglages();
       };
       boite.appendChild(b);
     });
