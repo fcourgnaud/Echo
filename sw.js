@@ -2,7 +2,7 @@
    Il va d'abord chercher la version en ligne (tes modifs sur GitHub
    apparaissent donc tout de suite), et utilise la copie gardée
    en mémoire seulement si le téléphone n'a pas de réseau. */
-const CACHE = 'echo-v8';
+const CACHE = 'echo-v9';
 const FICHIERS = ['./', './index.html', './theme.css', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const JSQR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
 

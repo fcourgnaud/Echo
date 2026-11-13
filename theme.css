@@ -196,6 +196,7 @@ body[data-etat="buzz"] #btn-personne { display: block; }
 .essai-resultat.flash { animation: flash 0.5s; }
 @keyframes flash { 0% { background: var(--accent); color: var(--texte-sur-accent); } 100% { background: var(--fond-2); } }
 .essai-aide { color: var(--texte-doux); }
+.essai-lecteur { color: var(--texte-doux); font-size: 0.8rem; }
 .grille-sons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 420px; }
 .son-btn { background: var(--fond-2); border-radius: 14px; padding: 12px 6px; font-weight: 700; font-size: 0.9rem; }
 .son-btn.son-piege { border: 2px dashed var(--faux); }
