@@ -70,7 +70,7 @@
    ÉCHO — app de jeu
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const DATE_VERSION = '13/11/2026';
 
 /* ---------- LES SONS ----------
@@ -79,10 +79,26 @@ const DATE_VERSION = '13/11/2026';
    synth   : le son fabriqué par l'app si aucun fichier n'est fourni
    piege   : true = son « piège » (utilisé seulement en difficulté Pièges)
    jumeau  : le son auquel le piège ressemble
-   Pour utiliser un vrai enregistrement : dépose sons/S01.mp3 (etc.) sur GitHub.
-   Pour afficher ton dessin du son : dépose images/S01.png (etc.) sur GitHub.
+   Chaque thème a son dossier de sons et son dossier d'images :
+   - Animaux : sons/animaux/S01.mp3 …  et  images/animaux/S01.png …
+   - Objets  : sons/S01.mp3 …          et  images/S01.png …
+   Pour remplacer un son ou un dessin : dépose ton fichier au même nom sur GitHub.
 */
-const SONS = [
+const SONS_ANIMAUX = [
+  { code:'S01', nom:'Vache' },
+  { code:'S02', nom:'Mouton' },
+  { code:'S03', nom:'Chat' },
+  { code:'S04', nom:'Chien' },
+  { code:'S05', nom:'Canard' },
+  { code:'S06', nom:'Coucou' },
+  { code:'S07', nom:'Poussin' },
+  { code:'S08', nom:'Cochon' },
+  { code:'S09', nom:'Loup',       piege:true, jumeau:'S04' },
+  { code:'S10', nom:'Grenouille', piege:true, jumeau:'S05' },
+  { code:'S11', nom:'Hibou',      piege:true, jumeau:'S06' },
+  { code:'S12', nom:'Oiseau',     piege:true, jumeau:'S07' },
+];
+const SONS_OBJETS = [
   { code:'S01', nom:'Tambour',       synth:'tambour' },
   { code:'S02', nom:'Cloche',        synth:'cloche' },
   { code:'S03', nom:'Sifflet',       synth:'sifflet' },
@@ -96,11 +112,17 @@ const SONS = [
   { code:'S11', nom:'Pipeau',        synth:'pipeau',       piege:true, jumeau:'S03' },
   { code:'S12', nom:'Grosse goutte', synth:'grossegoutte', piege:true, jumeau:'S07' },
 ];
+const THEMES = {
+  animaux: { liste: SONS_ANIMAUX, sons: 'sons/animaux/', images: 'images/animaux/' },
+  objets:  { liste: SONS_OBJETS,  sons: 'sons/',         images: 'images/' },
+};
+let SONS = SONS_ANIMAUX; // la liste du thème choisi
 
 /* ---------- RÉGLAGES DE L'ÉCRAN D'ACCUEIL ---------- */
 /* mode : la ligne n'apparaît que dans ce mode de jeu */
 const CHOIX = [
   { cle:'mode',          nom:'Mode de jeu',        options:[['echo','Écho (rapidité)'],['petits','Petits (mémoire)']], defaut:'echo' },
+  { cle:'theme',         nom:'Sons',               options:[['animaux','Animaux'],['objets','Objets']], defaut:'animaux' },
   { cle:'cartes',        nom:'Jouer avec',         options:[['cartes','Les cartes'],['ecran','L\'écran']], defaut:'cartes' },
   { cle:'joueurs',       nom:'Joueurs',            options:[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']], defaut:4, mode:'echo' },
   { cle:'difficulte',    nom:'Difficulté',         options:[['facile','Facile'],['pieges','Pièges']], defaut:'facile', mode:'echo' },
@@ -134,6 +156,13 @@ try {
   CHOIX.forEach(c => { if (c.options.some(o => o[0] === memo[c.cle])) reglages[c.cle] = memo[c.cle]; });
 } catch (e) {}
 function sauverReglages() { try { localStorage.setItem('echo-reglages', JSON.stringify(reglages)); } catch (e) {} }
+function theme() { return THEMES[reglages.theme] || THEMES.animaux; }
+SONS = theme().liste;
+function changerTheme() {
+  SONS = theme().liste;
+  construireEssai();
+  if (ctx) chargerTheme();
+}
 
 /* ---------------- AUDIO ---------------- */
 let ctx = null, master = null;
@@ -145,20 +174,26 @@ function initAudio() {
     master = ctx.createGain();
     master.gain.value = 0.9;
     master.connect(ctx.destination);
-    chargerEnregistrements();
+    chargerTheme();
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
 
-async function chargerEnregistrements() {
-  for (const s of SONS) {
-    try {
-      const r = await fetch('sons/' + s.code + '.mp3');
-      if (!r.ok) continue;
-      const data = await r.arrayBuffer();
-      enregistrements[s.code] = await new Promise((ok, ko) => ctx.decodeAudioData(data, ok, ko));
-    } catch (e) { /* pas de fichier : on garde le son fabriqué */ }
+const chargements = {};
+function cleSon(code) { return reglages.theme + '/' + code; }
+function chargerTheme() {
+  const th = reglages.theme;
+  if (!chargements[th]) {
+    chargements[th] = Promise.all(THEMES[th].liste.map(async s => {
+      try {
+        const r = await fetch(THEMES[th].sons + s.code + '.mp3');
+        if (!r.ok) return;
+        const data = await r.arrayBuffer();
+        enregistrements[th + '/' + s.code] = await new Promise((ok, ko) => ctx.decodeAudioData(data, ok, ko));
+      } catch (e) { /* pas de fichier : on garde le son fabriqué, s'il existe */ }
+    }));
   }
+  return chargements[th];
 }
 
 function enveloppe(g, t, attaque, duree, pic) {
@@ -263,13 +298,14 @@ const BRUITAGES = {
 function jouerSon(code, quand) {
   if (!ctx) return;
   const t = quand ?? ctx.currentTime + 0.02;
-  if (enregistrements[code]) {
+  const enr = enregistrements[cleSon(code)];
+  if (enr) {
     const src = ctx.createBufferSource();
-    src.buffer = enregistrements[code]; src.connect(master); src.start(t);
+    src.buffer = enr; src.connect(master); src.start(t);
     return;
   }
   const s = SONS.find(x => x.code === code);
-  if (s && SYNTH[s.synth]) SYNTH[s.synth](t);
+  if (s && s.synth && SYNTH[s.synth]) SYNTH[s.synth](t);
 }
 function bruitage(nom) { if (ctx) BRUITAGES[nom](ctx.currentTime + 0.02); }
 
@@ -633,7 +669,7 @@ function montrerVisuel(code, zone = 'visuel') {
   if (!code) return;
   const img = document.createElement('img');
   img.alt = nomDe(code);
-  img.src = 'images/' + code + '.png';
+  img.src = theme().images + code + '.png';
   img.onerror = () => { z.innerHTML = '<span class="visuel-nom">' + nomDe(code) + '</span>'; };
   z.appendChild(img);
 }
@@ -667,7 +703,7 @@ function majClavier() {
       const b = document.createElement('button');
       b.className = 'touche touche-son';
       const img = document.createElement('img');
-      img.alt = ''; img.src = 'images/' + code + '.png';
+      img.alt = ''; img.src = theme().images + code + '.png';
       img.onerror = () => img.remove();
       const nom = document.createElement('span');
       nom.className = 'touche-nom'; nom.textContent = nomDe(code);
@@ -740,6 +776,7 @@ function construireReglages() {
         b.classList.add('choisi');
         majVisibles();
         sauverReglages();
+        if (c.cle === 'theme') changerTheme();
       };
       boite.appendChild(b);
     });
@@ -755,6 +792,7 @@ async function garderEcranAllume() {
 
 $('btn-lancer').onclick = async () => {
   initAudio();
+  await chargerTheme();
   document.body.classList.toggle('sans-cartes', !avecCartes());
   if (avecCartes() && !(await demarrerCamera())) return;
   garderEcranAllume();
@@ -769,6 +807,7 @@ $('btn-quitter').onclick = () => {
 /* ---------------- ÉCRAN DE TEST ---------------- */
 function construireEssai() {
   const z = $('essai-sons');
+  z.innerHTML = '';
   SONS.forEach(s => {
     const b = document.createElement('button');
     b.className = 'son-btn' + (s.piege ? ' son-piege' : '');
@@ -786,6 +825,7 @@ function essaiScan(code) {
 }
 $('btn-essai').onclick = async () => {
   initAudio();
+  chargerTheme();
   etat('essai');
   montrerEcran('ecran-essai');
   await demarrerCamera();

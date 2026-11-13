@@ -1,15 +1,19 @@
 DOSSIER DES SONS — ÉCHO
 
-Ce dossier est facultatif. Sans lui, l'app fabrique elle-même les 12 sons.
+Deux thèmes, choisis sur l'écran d'accueil (réglage « Sons ») :
 
-Pour remplacer un son par un vrai enregistrement :
-- nomme le fichier avec le code de la carte : S01.mp3, S02.mp3 … S12.mp3
-- dépose-le dans ce dossier "sons" sur GitHub
-- garde des sons courts (moins d'une seconde) qui commencent tout de suite, sans silence au début
+ANIMAUX : dossier sons/animaux/  (sons fabriqués par Claude, remplaçables)
+S01 Vache      S05 Canard    S09 Loup        (piège du Chien)
+S02 Mouton     S06 Coucou    S10 Grenouille  (piège du Canard)
+S03 Chat       S07 Poussin   S11 Hibou       (piège du Coucou)
+S04 Chien      S08 Cochon    S12 Oiseau      (piège du Poussin)
 
-S01 Tambour        S07 Goutte
-S02 Cloche         S08 Klaxon
-S03 Sifflet        S09 Tam-tam        (piège du Tambour)
-S04 Gong           S10 Clochette      (piège de la Cloche)
-S05 Clap           S11 Pipeau         (piège du Sifflet)
-S06 Boing          S12 Grosse goutte  (piège de la Goutte)
+OBJETS : dossier sons/  (sans fichier, l'app fabrique elle-même les sons)
+S01 Tambour    S05 Clap      S09 Tam-tam
+S02 Cloche     S06 Boing     S10 Clochette
+S03 Sifflet    S07 Goutte    S11 Pipeau
+S04 Gong       S08 Klaxon    S12 Grosse goutte
+
+Pour remplacer un son : dépose un fichier .mp3 au même nom dans le bon dossier.
+Garde des sons courts (moins d'une seconde) qui commencent tout de suite.
+Les dessins vont de la même façon dans images/animaux/ ou images/ (S01.png …).
