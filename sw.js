@@ -2,7 +2,7 @@
    Il va d'abord chercher la version en ligne (tes modifs sur GitHub
    apparaissent donc tout de suite), et utilise la copie gardée
    en mémoire seulement si le téléphone n'a pas de réseau. */
-const CACHE = 'echo-v10';
+const CACHE = 'echo-v11';
 const FICHIERS = ['./', './index.html', './theme.css', './manifest.webmanifest', './icon-192.png', './icon-512.png', './jsQR.js'];
 const ZXING = 'https://fastly.jsdelivr.net/npm/barcode-detector@3/dist/iife/index.min.js';
 

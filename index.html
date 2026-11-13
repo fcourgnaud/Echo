@@ -159,7 +159,7 @@
    ÉCHO — app de jeu
    Les réglages faciles à modifier sont tout en haut.
    ===================================================================== */
-const VERSION = 'v10';
+const VERSION = 'v11';
 const DATE_VERSION = '13/11/2026';
 
 /* ---------- LES SONS ----------
@@ -454,7 +454,8 @@ async function demarrerCamera(silencieux) {
     } catch (e) {}
     await preparerLecteur();
     document.body.classList.add('camera-ok');
-    prochaineImage();
+    boucle++;
+    prochaineImage(boucle);
     return true;
   } catch (e) {
     derniereErreur = 'caméra : ' + (e && e.name || e);
@@ -464,7 +465,18 @@ async function demarrerCamera(silencieux) {
 }
 
 // boucle simple et sûre : elle tourne toujours, même si la vidéo est cachée
-function prochaineImage() { setTimeout(analyserImage, 20); }
+let boucle = 0; // numéro de la boucle en cours (évite d'en lancer deux)
+function prochaineImage(n = boucle) { setTimeout(() => analyserImage(n), 20); }
+
+// éteint la caméra (le voyant du téléphone s'éteint aussi)
+function arreterCamera() {
+  boucle++;                      // la boucle de lecture en cours s'arrête
+  if (flux) flux.getTracks().forEach(p => p.stop());
+  flux = null;
+  video.srcObject = null;
+  document.body.classList.remove('camera-ok');
+  dernierCode = '';
+}
 
 // prépare l'image à lire : image entière réduite, ou zoom sur le centre
 function cadrer(zoom) {
@@ -504,7 +516,8 @@ async function lire(zoom) {
   return null;
 }
 
-async function analyserImage() {
+async function analyserImage(n) {
+  if (n !== boucle || !flux) return; // caméra éteinte ou boucle remplacée
   if (!occupe && video.readyState >= 2 && video.videoWidth) {
     occupe = true;
     try {
@@ -518,7 +531,7 @@ async function analyserImage() {
     const t = performance.now();
     if (t - stats.depuis > 1000) { stats.ips = Math.round(stats.images * 1000 / (t - stats.depuis)); stats.images = 0; stats.depuis = t; afficherLecteur(); }
   }
-  prochaineImage();
+  prochaineImage(n);
 }
 
 function afficherLecteur() {
@@ -996,8 +1009,20 @@ $('btn-lancer').onclick = async () => {
 };
 $('btn-personne').onclick = () => { if (document.body.dataset.etat === 'buzz') personne(); };
 $('btn-quitter').onclick = () => {
-  if (confirm('Quitter la partie ?')) { etat('accueil'); montrerEcran('ecran-accueil'); }
+  if (confirm('Quitter la partie ?')) {
+    arreterCamera();
+    try { if (verrouEcran) verrouEcran.release(); } catch (e) {}
+    etat('accueil'); montrerEcran('ecran-accueil');
+  }
 };
+
+// si le téléphone a coupé la caméra (app mise en arrière-plan), on la rallume au retour
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const enJeu = $('ecran-jeu').classList.contains('visible') || $('ecran-essai').classList.contains('visible');
+  const coupee = !flux || flux.getVideoTracks().every(p => p.readyState === 'ended');
+  if (enJeu && coupee) { arreterCamera(); demarrerCamera(true); }
+});
 
 /* ---------------- ÉCRAN DE TEST ---------------- */
 function construireEssai() {
@@ -1026,7 +1051,7 @@ $('btn-essai').onclick = async () => {
   $('essai-camera').appendChild(video); // aperçu visible seulement sur l'écran de test
   await demarrerCamera();
 };
-$('btn-retour').onclick = () => { document.body.appendChild(video); etat('accueil'); montrerEcran('ecran-accueil'); };
+$('btn-retour').onclick = () => { arreterCamera(); document.body.appendChild(video); etat('accueil'); montrerEcran('ecran-accueil'); };
 
 /* ---------------- ÉCRAN DES RÈGLES ---------------- */
 function montrerOnglet(nom) {
